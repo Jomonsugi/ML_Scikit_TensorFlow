@@ -8,9 +8,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedShuffleSplit
 from pandas.tools.plotting import scatter_matrix
 from sklearn.preprocessing import Imputer, StandardScaler, LabelBinarizer, LabelEncoder
-from attributesadder import CombinedAttributesAdder, DataFrameSelector, housing_lin_reg
+from attributesadder import CombinedAttributesAdder, DataFrameSelector
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.linear_model import LinearRegression
+from house import transform_data
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import randint
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml/master/"
 HOUSING_URL = DOWNLOAD_ROOT + "datasets/housing/housing.tgz"
@@ -106,12 +112,53 @@ def clean(data):
     model_train_data = full_pipeline.fit_transform(housing)
     return full_pipeline, model_train_data
 
-def lin_reg(housing_prep):
+def lin_reg(housing_prep, housing_labels):
     lin_reg = LinearRegression()
+    scores = cross_val_score(lin_reg, housing_prep, housing_labels, scoring="neg_mean_squared_error", cv=10)
+    rmse_scores = np.sqrt(-scores)
+    print("LINEAR REGRESSION:")
+    print("Scores:", rmse_scores)
+    print("Mean:", rmse_scores.mean())
+    print("Standard Deviation:", rmse_scores.std())
     model = lin_reg.fit(housing_prep, housing_labels)
     return model
 
-def lin_pred(data):
+def forest(housing_prep, housing_labels):
+    dec_tree = DecisionTreeRegressor()
+    scores = cross_val_score(dec_tree, housing_prep, housing_labels, scoring="neg_mean_squared_error", cv=10)
+    rmse_scores = np.sqrt(-scores)
+    print("DECSION TREE:")
+    print("Scores:", rmse_scores)
+    print("Mean:", rmse_scores.mean())
+    print("Standard Deviation:", rmse_scores.std())
+    model = dec_tree.fit(housing_prep, housing_labels)
+    return model
+
+def random_forest(housing_prep, housing_labels):
+    rand_forest = RandomForestRegressor()
+    scores = cross_val_score(rand_forest, housing_prep, housing_labels, scoring="neg_mean_squared_error", cv=10)
+    rmse_scores = np.sqrt(-scores)
+    print("RANDOM FOREST:")
+    print("Scores:", rmse_scores)
+    print("Mean:", rmse_scores.mean())
+    print("Standard Deviation:", rmse_scores.std())
+    model = rand_forest.fit(housing_prep, housing_labels)
+    return model
+
+def grid_search(housing_prep, housing_labels):
+    param_distribs = {
+        'n_estimators': randint(low=1, high=200),
+        'max_features': randint(low=1, high=8),
+    }
+
+    forest_reg = RandomForestRegressor(random_state=42)
+    rnd_search = RandomizedSearchCV(forest_reg, param_distributions=param_distribs,
+                                    n_iter=10, cv=5, scoring='neg_mean_squared_error', random_state=42)
+    model = rnd_search.fit(housing_prep, housing_labels)
+    return model
+
+
+def predict(data, model):
     prepped_data = full_pipeline.transform(data)
     predictions = model.predict(prepped_data)
     return predictions
@@ -121,23 +168,28 @@ if __name__ == '__main__':
     plt.close('all')
     #fetch_housing_data()
     housing = load_housing_data()
+    '''
+    a few exploratory plots using training data
+    '''
+    # train_set, test_set = random_split()
     # hist_plot()
-    train_set, test_set = random_split()
-    strat_train_set, strat_test_set = strat_split()
-    #plots using strat train set
     # lat_long_plot()
     # corr_matrix()
-    #for pipeline
-    housing = strat_train_set.drop("median_house_value", axis=1) # drop labels for training set
-    housing_labels = strat_train_set["median_house_value"].copy()
-    housing_num = housing.drop("ocean_proximity", axis=1)
-    num_attribs = list(housing_num)
-    cat_attribs = ["ocean_proximity"]
-    #prepare training data with pipeline, exact pipeline should be used for
-    #test data later
 
-    full_pipeline, model_train_data = clean(housing)
-    model = lin_reg(model_train_data)
+    '''
+    assuming regular cleaning and prep of new data this class cleans and returns
+    the necessary variables for model training
+    '''
+    data = transform_data(housing)
+    full_pipeline, model_train_data, housing_labels = transform_data.clean(data)
+
+    lin_model = lin_reg(model_train_data, housing_labels)
+    print()
+    dec_tree_model = forest(model_train_data, housing_labels)
+    print()
+    random_forest_model = random_forest(model_train_data, housing_labels)
+
+    # model = grid_search(model_train_data, housing_labels)
 
     some_data = housing.iloc[:5]
-    predictions = lin_pred(some_data)
+    predictions = predict(some_data, random_forest_model)

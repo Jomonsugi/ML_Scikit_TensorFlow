@@ -1,5 +1,4 @@
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.linear_model import LinearRegression
 import numpy as np
 
 rooms_ix, bedrooms_ix, population_ix, household_ix = 3, 4, 5, 6
@@ -27,14 +26,3 @@ class DataFrameSelector(BaseEstimator, TransformerMixin):
         return self
     def transform(self, X):
         return X[self.attribute_names].values
-
-class housing_lin_reg(LinearRegression):
-    def __init__(self, data, labels, ):
-        self.data = data
-        self.labels = labels
-    def lin_reg(self):
-        lin_reg = LinearRegression()
-        lin_reg.fit(self.housing_prep, self.housing_labels)
-        data_prepared = full_pipeline.transform(self.data)
-        preds = lin_reg.predict(data_prepared)
-        return preds
