@@ -17,6 +17,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import randint
+from sklearn.metrics import mean_squared_error
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml/master/"
 HOUSING_URL = DOWNLOAD_ROOT + "datasets/housing/housing.tgz"
@@ -153,12 +154,21 @@ def grid_search(housing_prep, housing_labels):
 
     forest_reg = RandomForestRegressor(random_state=42)
     rnd_search = RandomizedSearchCV(forest_reg, param_distributions=param_distribs,
-                                    n_iter=10, cv=5, scoring='neg_mean_squared_error', random_state=42)
+                                    n_iter=10, cv=5, n_jobs=-1, scoring='neg_mean_squared_error', random_state=42)
     model = rnd_search.fit(housing_prep, housing_labels)
     return model
 
+def predict_on_test(strat_test_set, final_model, full_pipeline):
+    X_test = strat_test_set.drop("median_house_value", axis=1)
+    y_test = strat_test_set["median_house_value"].copy()
+    X_test_prepared = full_pipeline.transform(X_test)
+    final_predictions = final_model.predict(X_test_prepared)
+    final_mse = mean_squared_error(y_test, final_predictions)
+    print("Final MSE:", final_mse)
+    final_rmse = np.sqrt(final_mse)
+    print("Final_rmse:", final_rmse)
 
-def predict(data, model):
+def predict(data, model, full_pipeline):
     prepped_data = full_pipeline.transform(data)
     predictions = model.predict(prepped_data)
     return predictions
@@ -178,18 +188,23 @@ if __name__ == '__main__':
 
     '''
     assuming regular cleaning and prep of new data this class cleans and returns
-    the necessary variables for model training
+    the necessary variables for model training, and testing the model
     '''
     data = transform_data(housing)
-    full_pipeline, model_train_data, housing_labels = transform_data.clean(data)
+    full_pipeline, model_train_data, train_housing_labels, strat_test_set = transform_data.clean(data)
 
-    lin_model = lin_reg(model_train_data, housing_labels)
-    print()
-    dec_tree_model = forest(model_train_data, housing_labels)
-    print()
-    random_forest_model = random_forest(model_train_data, housing_labels)
+    # lin_model = lin_reg(model_train_data, train_housing_labels)
+    # print()
+    # dec_tree_model = forest(model_train_data, train_housing_labels)
+    # print()
+    # random_forest_model = random_forest(model_train_data, train_housing_labels)
 
-    # model = grid_search(model_train_data, housing_labels)
+    model = grid_search(model_train_data, train_housing_labels)
 
-    some_data = housing.iloc[:5]
-    predictions = predict(some_data, random_forest_model)
+    test_predictions = predict_on_test(strat_test_set, model, full_pipeline)
+
+    '''
+    this would be where new data would be predicted on given a development cycle
+    '''
+    # some_data = new_data
+    # predictions = predict(some_data, model, full_pipeline)
