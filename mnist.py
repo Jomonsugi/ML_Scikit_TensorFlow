@@ -10,11 +10,11 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.base import clone
 from sklearn.model_selection import cross_val_score, cross_val_predict
-from sklearn.metrics import confusion_matrix, precision_recall_curve
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import confusion_matrix, precision_recall_curve, roc_curve, roc_auc_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multiclass import OneVsOneClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
 
 
 def fetch_data():
@@ -23,8 +23,7 @@ def fetch_data():
     return X, y
 
 # show any digit in the dataset index 1-70000
-def show_digit(digit):
-    some_digit = X[digit]
+def show_digit(some_digit):
     some_digit_image = some_digit.reshape(28, 28)
 
     plt.imshow(some_digit_image, cmap = matplotlib.cm.binary,
@@ -166,16 +165,53 @@ def rf(digit):
     plt.matshow(norm_conf_mx, cmap=plt.cm.gray)
     plt.show()
 
+'''
+Multilabel classification
+'''
+def multilabel():
+    y_train_large = (y_train >= 7)
+    y_train_odd = (y_train % 2 ==1)
+    y_multilabel = np.c_[y_train_large, y_train_odd]
+    knn_clf = KNeighborsClassifier()
+    knn_model = knn_clf.fit(X_train, y_multilabel)
+    #example use
+    prediction = knn_model.predict([some_digit])
+    print(prediction)
+    y_train_knn_pred = cross_val_predict(knn_clf, X_train, y_train, cv=3)
+    f1 = f1_score(y_train, y_train_knn_pred, average="macro")
+    print(f1)
+    return knn_model
+
+'''
+Multioutput Classification
+'''
+
+def multioutput(some_index):
+    #adding "noise" to numbers
+    noise_train = np.random.randint(0, 100, (len(X_train), 784))
+    noise_test = np.random.randint(0, 100, (len(X_test), 784))
+    X_train_mod = X_train + noise_train
+    X_test_mod = X_test + noise_test
+    y_train_mod = X_train
+    y_test_mod = X_test
+
+    knn_clf = KNeighborsClassifier()
+    knn_clf.fit(X_train_mod, y_train_mod)
+    clean_digit = knn_clf.predict([X_test_mod[some_index]])
+    show_digit(clean_digit)
 
 if __name__ == '__main__':
     plt.close("all")
     X, y = fetch_data()
-    # show_digit(32000)
+    some_digit = X[32000]
+    # show_digit(67000)
     # plot_digits(example_images, images_per_row=10)
     X_train, X_test, y_train, y_test = train_test_split()
     # sgd_fpr, sgd_tpr = number_train_sgd(5)
     # fpr_forest, tpr_forest = number_train_rf(5)
     # plot_roc()
-    sgd_ova(3600)
-    sgd_ovo(3600)
-    rf(32000)
+    # sgd_ova(3600)
+    # sgd_ovo(3600)
+    # rf(32000)
+    #knn_model = multilabel()
+    multioutput(589)
